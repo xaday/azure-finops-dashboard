@@ -78,10 +78,11 @@ st.markdown("""
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         border-bottom: 2px solid #A100FF;
+        background-color: #000000;
     }
     .stTabs [data-baseweb="tab"] {
         font-weight: 600;
-        color: #333333;
+        color: #CCCCCC;
     }
     .stTabs [aria-selected="true"] {
         color: #A100FF !important;
@@ -114,8 +115,8 @@ st.markdown("""
         <polygon points="50,5 95,95 5,95" fill="#A100FF"/>
     </svg>
     <div>
-        <div style="font-size:22px; font-weight:700; color:#000000; letter-spacing:-0.5px;">Azure FinOps Dashboard</div>
-        <div style="font-size:13px; color:#666666; font-weight:400;">Powered by Accenture Cloud Analytics</div>
+        <div style="font-size:22px; font-weight:700; color:#FFFFFF; letter-spacing:-0.5px;">Azure FinOps Dashboard</div>
+        <div style="font-size:13px; color:#AAAAAA; font-weight:400;">Powered by Accenture Cloud Analytics</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
