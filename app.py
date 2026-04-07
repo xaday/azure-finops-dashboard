@@ -59,14 +59,20 @@ st.markdown("""
 
     /* Metric cards */
     [data-testid="metric-container"] {
-        background-color: #F2F2F2;
+        background-color: #000000;
         border-left: 4px solid #A100FF;
         border-radius: 4px;
         padding: 12px 16px;
     }
     [data-testid="stMetricValue"] {
-        color: #A100FF !important;
+        color: #FFFFFF !important;
         font-weight: 700;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #CCCCCC !important;
+    }
+    [data-testid="stMetricDelta"] {
+        color: #A100FF !important;
     }
 
     /* Tabs */
