@@ -26,18 +26,11 @@ st.title("Azure FinOps Dashboard")
 with st.sidebar:
     st.header("Configuração")
 
-    uploaded_files = st.file_uploader(
-        "Upload CSV(s) do Azure Cost Management",
+    all_files = st.file_uploader(
+        "Upload CSV(s) Azure",
         type=["csv"],
         accept_multiple_files=True,
-    )
-
-    st.divider()
-    waste_files = st.file_uploader(
-        "Upload CSV(s) de Waste/Orfãos (opcional)",
-        type=["csv"],
-        accept_multiple_files=True,
-        help="Ficheiros de recursos idle, untagged, ou orfãos exportados do Azure Advisor / Cost Management.",
+        help="Aceita ficheiros de custos, waste, orfãos ou recursos sem tags. O tipo é detectado automaticamente.",
     )
 
     st.divider()
@@ -56,15 +49,26 @@ with st.sidebar:
     mandatory_tags = [t.strip() for t in mandatory_tags_input.split(",") if t.strip()]
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-if not uploaded_files:
-    st.info("Faz upload de um ou mais ficheiros CSV do Azure Cost Management para começar.")
+if not all_files:
+    st.info("Faz upload de um ou mais ficheiros CSV do Azure para começar.")
     st.stop()
 
+
+def _is_waste_file(file) -> bool:
+    peek = pd.read_csv(file, nrows=0, encoding="utf-8-sig")
+    file.seek(0)
+    cols = {c.lower().replace(" ", "").replace("_", "") for c in peek.columns}
+    return "issuetype" in cols or "recommendedaction" in cols
+
+
 dfs = []
-for f in uploaded_files:
+waste_files = []
+for f in all_files:
     try:
-        df = load_csv(f)
-        dfs.append(df)
+        if _is_waste_file(f):
+            waste_files.append(f)
+        else:
+            dfs.append(load_csv(f))
     except ValueError as e:
         st.error(f"Erro ao processar {f.name}: {e}")
 
