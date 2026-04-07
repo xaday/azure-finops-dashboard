@@ -203,9 +203,9 @@ with tab6:
         def is_incomplete(row):
             return any(not row["tags"].get(t) for t in mandatory_tags)
 
-        incomplete = df[df.apply(is_incomplete, axis=1)][
-            ["resource_id", "resource_group_name", "service_name", "cost", "tags"]
-        ].sort_values("cost", ascending=False)
+        preferred_cols = ["resource_id", "resource_group_name", "service_name", "cost", "tags"]
+        display_cols = [c for c in preferred_cols if c in df.columns]
+        incomplete = df[df.apply(is_incomplete, axis=1)][display_cols].sort_values("cost", ascending=False)
 
         st.dataframe(incomplete, use_container_width=True)
 
