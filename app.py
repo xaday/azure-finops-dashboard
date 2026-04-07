@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from src.parser import load_csv
+from src.orphans import detect_orphans
 from src.metrics import (
     cost_by_service,
     cost_by_tag,
@@ -90,8 +91,8 @@ with st.sidebar:
     )
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "Overview", "Por Serviço", "Por Equipa", "Tendências", "Anomalias", "Tagging"
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Overview", "Por Serviço", "Por Equipa", "Tendências", "Anomalias", "Tagging", "Orfãos"
 ])
 
 # Tab 1: Overview
@@ -217,3 +218,54 @@ with tab6:
             file_name="tagging_incompleto.csv",
             mime="text/csv",
         )
+
+# Tab 7: Orfãos
+with tab7:
+    orphans = detect_orphans(df, mandatory_tags)
+
+    total_orphan_cost = orphans["cost"].sum() if not orphans.empty else 0.0
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Recursos suspeitos", len(orphans))
+    col2.metric("Custo em risco (EUR)", f"{total_orphan_cost:,.2f}")
+    col3.metric("Confiança Alta", len(orphans[orphans["confidence"] == "Alto"]) if not orphans.empty else 0)
+
+    if orphans.empty:
+        st.success("Nenhum recurso orfão detectado com os critérios actuais.")
+    else:
+        confidence_filter = st.multiselect(
+            "Filtrar por confiança",
+            options=["Alto", "Médio", "Baixo"],
+            default=["Alto", "Médio"],
+        )
+        filtered_orphans = orphans[orphans["confidence"].isin(confidence_filter)]
+
+        st.dataframe(filtered_orphans, use_container_width=True)
+
+        orphan_export = filtered_orphans.copy()
+        if "tags" in orphan_export.columns:
+            orphan_export["tags"] = orphan_export["tags"].astype(str)
+        st.download_button(
+            "Exportar para CSV",
+            data=orphan_export.to_csv(index=False),
+            file_name="orfaos.csv",
+            mime="text/csv",
+        )
+
+    with st.expander("Como são detectados os orfãos?"):
+        st.markdown("""
+**Critérios de detecção (via CSV):**
+
+| Critério | Confiança |
+|----------|-----------|
+| Coluna `status` com valor `Orphaned`, `Unattached`, `Idle` | Alto |
+| Tipo de recurso orphan-prone + sem tags obrigatórias (2+ motivos) | Alto |
+| Custo residual (≤ 0.10 EUR) em recurso orphan-prone | Médio |
+| Tipo orphan-prone sem tags | Baixo |
+
+**Tipos orphan-prone monitorados:** Managed Disks, Public IPs, Network Interfaces,
+Snapshots, Load Balancers, Application Gateways, App Service Plans, Virtual Networks,
+NAT Gateways, Route Tables, Network Security Groups.
+
+**Nota:** Para detecção precisa (discos realmente não attached, IPs não associados),
+é necessária integração com a Azure API — disponível numa versão futura.
+        """)
