@@ -19,8 +19,100 @@ from src.charts import (
     bar_tagging_compliance,
 )
 
-st.set_page_config(page_title="Azure FinOps Dashboard", layout="wide")
-st.title("Azure FinOps Dashboard")
+st.set_page_config(
+    page_title="Azure FinOps Dashboard | Accenture",
+    page_icon="🟣",
+    layout="wide",
+)
+
+st.markdown("""
+<style>
+    /* Accenture brand colours */
+    :root {
+        --acn-purple: #A100FF;
+        --acn-black: #000000;
+        --acn-white: #FFFFFF;
+        --acn-light-gray: #F2F2F2;
+        --acn-dark-gray: #333333;
+    }
+
+    /* Top bar */
+    [data-testid="stHeader"] {
+        background-color: #000000;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #000000;
+        border-right: 3px solid #A100FF;
+    }
+    [data-testid="stSidebar"] * {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] .stSlider label,
+    [data-testid="stSidebar"] .stTextInput label,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stFileUploader label {
+        color: #FFFFFF !important;
+        font-weight: 600;
+    }
+
+    /* Metric cards */
+    [data-testid="metric-container"] {
+        background-color: #F2F2F2;
+        border-left: 4px solid #A100FF;
+        border-radius: 4px;
+        padding: 12px 16px;
+    }
+    [data-testid="stMetricValue"] {
+        color: #A100FF !important;
+        font-weight: 700;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        border-bottom: 2px solid #A100FF;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 600;
+        color: #333333;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #A100FF !important;
+        border-bottom: 3px solid #A100FF;
+    }
+
+    /* Buttons */
+    .stDownloadButton > button, .stButton > button {
+        background-color: #A100FF !important;
+        color: #FFFFFF !important;
+        border: none;
+        border-radius: 0px;
+        font-weight: 600;
+    }
+    .stDownloadButton > button:hover, .stButton > button:hover {
+        background-color: #7B00CC !important;
+    }
+
+    /* Divider */
+    hr {
+        border-color: #A100FF;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Accenture header ──────────────────────────────────────────────────────────
+st.markdown("""
+<div style="display:flex; align-items:center; gap:16px; padding:8px 0 24px 0; border-bottom:3px solid #A100FF; margin-bottom:24px;">
+    <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="50,5 95,95 5,95" fill="#A100FF"/>
+    </svg>
+    <div>
+        <div style="font-size:22px; font-weight:700; color:#000000; letter-spacing:-0.5px;">Azure FinOps Dashboard</div>
+        <div style="font-size:13px; color:#666666; font-weight:400;">Powered by Accenture Cloud Analytics</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
