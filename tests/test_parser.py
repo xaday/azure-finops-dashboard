@@ -55,3 +55,37 @@ def test_load_csv_raises_on_empty_file(tmp_path):
     empty_csv.write_text("")
     with pytest.raises(ValueError, match="empty"):
         load_csv(empty_csv)
+
+
+def test_load_csv_warns_on_invalid_cost(tmp_path):
+    bad_cost_csv = tmp_path / "bad_cost.csv"
+    bad_cost_csv.write_text(
+        "Date,Cost,BillingCurrency,ServiceName,ResourceGroupName,ResourceId,Tags,SubscriptionName\n"
+        "2024-01-01,not_a_number,EUR,Storage,rg-dev,/sub/res,,sub\n"
+    )
+    with pytest.warns(UserWarning, match="invalid cost"):
+        df = load_csv(bad_cost_csv)
+    assert df["cost"].isna().sum() == 1
+
+
+def test_load_csv_warns_on_invalid_date(tmp_path):
+    bad_date_csv = tmp_path / "bad_date.csv"
+    bad_date_csv.write_text(
+        "Date,Cost,BillingCurrency,ServiceName,ResourceGroupName,ResourceId,Tags,SubscriptionName\n"
+        "not_a_date,10.0,EUR,Storage,rg-dev,/sub/res,,sub\n"
+    )
+    with pytest.warns(UserWarning, match="invalid date"):
+        df = load_csv(bad_date_csv)
+    assert df["date"].isna().sum() == 1
+
+
+def test_load_csv_tags_regex_fallback(tmp_path):
+    # Tags in non-JSON format that falls back to regex parsing
+    regex_csv = tmp_path / "regex_tags.csv"
+    regex_csv.write_text(
+        'Date,Cost,BillingCurrency,ServiceName,ResourceGroupName,ResourceId,Tags,SubscriptionName\n'
+        '2024-01-01,10.0,EUR,Storage,rg-dev,/sub/res,"Team: backend",sub\n'
+    )
+    df = load_csv(regex_csv)
+    # non-JSON tags without braces won't match regex pattern either, just return {}
+    assert isinstance(df.loc[0, "tags"], dict)

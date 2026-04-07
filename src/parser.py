@@ -1,5 +1,6 @@
 import json
 import re
+import warnings
 from typing import Union
 import pandas as pd
 from pathlib import Path
@@ -60,7 +61,15 @@ def load_csv(path: Union[Path, str]) -> pd.DataFrame:
         raise ValueError(f"Missing required columns: {missing}")
 
     df["cost"] = pd.to_numeric(df["cost"], errors="coerce").astype(float)
+    nan_cost = df["cost"].isna().sum()
+    if nan_cost > 0:
+        warnings.warn(f"{nan_cost} row(s) have invalid cost values and were set to NaN.")
+
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    nan_date = df["date"].isna().sum()
+    if nan_date > 0:
+        warnings.warn(f"{nan_date} row(s) have invalid date values and were set to NaT.")
+
     df["tags"] = df["tags"].apply(_parse_tags)
 
     return df.reset_index(drop=True)
