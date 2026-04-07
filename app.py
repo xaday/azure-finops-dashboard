@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from src.parser import load_csv
 from src.orphans import detect_orphans
+from src.waste_parser import load_waste_csv, waste_summary
 from src.metrics import (
     cost_by_service,
     cost_by_tag,
@@ -31,6 +32,15 @@ with st.sidebar:
         accept_multiple_files=True,
     )
 
+    st.divider()
+    waste_files = st.file_uploader(
+        "Upload CSV(s) de Waste/Orfãos (opcional)",
+        type=["csv"],
+        accept_multiple_files=True,
+        help="Ficheiros de recursos idle, untagged, ou orfãos exportados do Azure Advisor / Cost Management.",
+    )
+
+    st.divider()
     anomaly_threshold = st.slider(
         "Limiar de anomalia (× média móvel)",
         min_value=1.1,
@@ -221,12 +231,116 @@ with tab6:
 
 # Tab 7: Orfãos
 with tab7:
-    orphans = detect_orphans(df, mandatory_tags)
+    # ── Waste files (dedicated reports) ──────────────────────────────────────
+    waste_dfs = []
+    if waste_files:
+        for wf in waste_files:
+            try:
+                wdf = load_waste_csv(wf)
+                waste_dfs.append(wdf)
+            except ValueError as e:
+                st.error(f"Erro ao processar {wf.name}: {e}")
 
+    if waste_dfs:
+        import plotly.express as px
+
+        wdf = pd.concat(waste_dfs, ignore_index=True)
+        summary = waste_summary(wdf)
+
+        st.subheader("Resumo de Waste")
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Recursos", summary["total_resources"])
+        c2.metric("Custo Total (USD)", f"{summary['total_cost']:,.0f}")
+        c3.metric("Poupança Mensal (USD)", f"{summary['monthly_savings']:,.0f}")
+        c4.metric("Poupança Anual (USD)", f"{summary['annual_savings']:,.0f}")
+        c5.metric("Automatizável (USD/mês)", f"{summary['automatable_savings']:,.0f}")
+
+        st.divider()
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            sev_counts = wdf["severity"].value_counts().reset_index()
+            sev_counts.columns = ["severity", "count"]
+            sev_order = ["Critical", "High", "Medium", "Low"]
+            sev_counts["severity"] = pd.Categorical(sev_counts["severity"], categories=sev_order, ordered=True)
+            sev_counts = sev_counts.sort_values("severity")
+            fig_sev = px.bar(
+                sev_counts, x="severity", y="count",
+                title="Recursos por Severidade",
+                color="severity",
+                color_discrete_map={"Critical": "#d62728", "High": "#ff7f0e", "Medium": "#ffbb78", "Low": "#2ca02c"},
+            )
+            st.plotly_chart(fig_sev, use_container_width=True)
+
+        with col_b:
+            if "finops_category" in wdf.columns:
+                cat_savings = wdf.groupby("finops_category", as_index=False)["monthly_savings"].sum()
+                fig_cat = px.pie(cat_savings, names="finops_category", values="monthly_savings",
+                                 title="Poupança por Categoria FinOps")
+                st.plotly_chart(fig_cat, use_container_width=True)
+
+        col_c, col_d = st.columns(2)
+        with col_c:
+            if "issue_type" in wdf.columns:
+                top_issues = (
+                    wdf.groupby("issue_type", as_index=False)["monthly_savings"]
+                    .sum()
+                    .sort_values("monthly_savings", ascending=False)
+                    .head(10)
+                )
+                fig_issues = px.bar(
+                    top_issues, x="monthly_savings", y="issue_type",
+                    orientation="h", title="Top 10 Issue Types por Poupança (USD/mês)",
+                    labels={"monthly_savings": "Poupança Mensal (USD)", "issue_type": "Tipo"},
+                    color="monthly_savings", color_continuous_scale="Reds",
+                )
+                st.plotly_chart(fig_issues, use_container_width=True)
+
+        with col_d:
+            if "automation_available" in wdf.columns:
+                auto_savings = wdf.groupby("automation_available", as_index=False)["monthly_savings"].sum()
+                fig_auto = px.bar(
+                    auto_savings, x="monthly_savings", y="automation_available",
+                    orientation="h", title="Poupança por Tipo de Automação",
+                    labels={"monthly_savings": "Poupança Mensal (USD)", "automation_available": "Automação"},
+                    color="monthly_savings", color_continuous_scale="Greens",
+                )
+                st.plotly_chart(fig_auto, use_container_width=True)
+
+        st.subheader("Detalhes dos Recursos")
+        sev_filter = st.multiselect(
+            "Filtrar por severidade",
+            options=["Critical", "High", "Medium", "Low"],
+            default=["Critical", "High"],
+        )
+        display_cols = [c for c in [
+            "severity", "issue_type", "service_name", "resource_group_name",
+            "resource_name", "cost", "monthly_savings", "recommended_action",
+            "automation_available", "issue_detail",
+        ] if c in wdf.columns]
+
+        filtered_waste = wdf[wdf["severity"].isin(sev_filter)][display_cols].sort_values(
+            "monthly_savings", ascending=False
+        ) if "monthly_savings" in wdf.columns else wdf[wdf["severity"].isin(sev_filter)][display_cols]
+
+        st.dataframe(filtered_waste, use_container_width=True)
+        st.download_button(
+            "Exportar para CSV",
+            data=filtered_waste.to_csv(index=False),
+            file_name="waste_report.csv",
+            mime="text/csv",
+        )
+
+        st.divider()
+        st.subheader("Detecção heurística (CSV de custos)")
+
+    # ── Heuristic detection from cost CSV ────────────────────────────────────
+    orphans = detect_orphans(df, mandatory_tags)
     total_orphan_cost = orphans["cost"].sum() if not orphans.empty else 0.0
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("Recursos suspeitos", len(orphans))
-    col2.metric("Custo em risco (EUR)", f"{total_orphan_cost:,.2f}")
+    col1.metric("Suspeitos (heurística)", len(orphans))
+    col2.metric("Custo em risco", f"{total_orphan_cost:,.2f}")
     col3.metric("Confiança Alta", len(orphans[orphans["confidence"] == "Alto"]) if not orphans.empty else 0)
 
     if orphans.empty:
@@ -236,36 +350,36 @@ with tab7:
             "Filtrar por confiança",
             options=["Alto", "Médio", "Baixo"],
             default=["Alto", "Médio"],
+            key="orphan_confidence",
         )
         filtered_orphans = orphans[orphans["confidence"].isin(confidence_filter)]
-
         st.dataframe(filtered_orphans, use_container_width=True)
 
         orphan_export = filtered_orphans.copy()
         if "tags" in orphan_export.columns:
             orphan_export["tags"] = orphan_export["tags"].astype(str)
         st.download_button(
-            "Exportar para CSV",
+            "Exportar heurística CSV",
             data=orphan_export.to_csv(index=False),
-            file_name="orfaos.csv",
+            file_name="orfaos_heuristico.csv",
             mime="text/csv",
+            key="orphan_download",
         )
 
     with st.expander("Como são detectados os orfãos?"):
         st.markdown("""
-**Critérios de detecção (via CSV):**
+**Ficheiros de waste dedicados (sidebar):** Carrega CSVs do Azure Advisor ou Cost Management
+com campos como `Issue Type`, `Severity`, `Est. Monthly Savings` para análise completa.
+
+**Detecção heurística (CSV de custos):**
 
 | Critério | Confiança |
 |----------|-----------|
 | Coluna `status` com valor `Orphaned`, `Unattached`, `Idle` | Alto |
-| Tipo de recurso orphan-prone + sem tags obrigatórias (2+ motivos) | Alto |
-| Custo residual (≤ 0.10 EUR) em recurso orphan-prone | Médio |
+| Tipo orphan-prone + sem tags obrigatórias | Alto |
+| Custo residual (≤ 0.10) em recurso orphan-prone | Médio |
 | Tipo orphan-prone sem tags | Baixo |
 
-**Tipos orphan-prone monitorados:** Managed Disks, Public IPs, Network Interfaces,
-Snapshots, Load Balancers, Application Gateways, App Service Plans, Virtual Networks,
-NAT Gateways, Route Tables, Network Security Groups.
-
-**Nota:** Para detecção precisa (discos realmente não attached, IPs não associados),
-é necessária integração com a Azure API — disponível numa versão futura.
+**Tipos orphan-prone:** Managed Disks, Public IPs, NICs, Snapshots, Load Balancers,
+App Gateways, App Service Plans, VNets, NAT Gateways, Route Tables, NSGs.
         """)
