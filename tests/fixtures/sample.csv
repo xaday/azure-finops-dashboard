@@ -1,0 +1,5 @@
+Date,Cost,BillingCurrency,ServiceName,ResourceGroupName,ResourceId,Tags,SubscriptionName
+2024-01-01,10.5,EUR,Virtual Machines,rg-prod,/subscriptions/abc/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1,"{""Team"": ""backend"", ""Environment"": ""prod""}",sub-main
+2024-01-01,5.0,EUR,Storage,rg-dev,/subscriptions/abc/resourceGroups/rg-dev/providers/Microsoft.Storage/storageAccounts/sa1,"{""Team"": ""frontend""}",sub-main
+2024-01-02,12.0,EUR,Virtual Machines,rg-prod,/subscriptions/abc/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm1,,sub-main
+2024-01-02,3.0,EUR,SQL Database,rg-prod,/subscriptions/abc/resourceGroups/rg-prod/providers/Microsoft.Sql/servers/sql1,"{""Environment"": ""prod""}",sub-main
