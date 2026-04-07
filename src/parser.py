@@ -44,15 +44,17 @@ def _parse_tags(raw) -> dict:
         return dict(pairs)
 
 
-def load_csv(path: Union[Path, str]) -> pd.DataFrame:
-    path = Path(path)
+def load_csv(source) -> pd.DataFrame:
+    is_path = isinstance(source, (str, Path))
+    name = str(source) if is_path else getattr(source, "name", "upload")
     try:
-        df = pd.read_csv(path, encoding="utf-8-sig")
+        read_target = Path(source) if is_path else source
+        df = pd.read_csv(read_target, encoding="utf-8-sig")
     except pd.errors.EmptyDataError:
-        raise ValueError(f"File is empty: {path}")
+        raise ValueError(f"File is empty: {name}")
 
     if df.empty:
-        raise ValueError(f"File is empty: {path}")
+        raise ValueError(f"File is empty: {name}")
 
     df = _normalise_columns(df)
 
