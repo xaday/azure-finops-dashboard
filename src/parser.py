@@ -12,8 +12,11 @@ _COLUMN_MAP = {
     # Date variants
     "date": "date",
     "month": "date",
-    "usagedatetime": "date",
+    "billingmonth": "date",
+    "billingperiodstart": "date",
     "billingperiodstartdate": "date",
+    "usagedatetime": "date",
+    "usagestart": "date",
     # Cost variants
     "cost": "cost",
     "pretaxcost": "cost",
@@ -54,6 +57,21 @@ def _normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
         seen_targets.add(target)
         renamed[col] = target
     return df.rename(columns=renamed)
+
+
+def _parse_dates(series: pd.Series) -> pd.Series:
+    formats = ["%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y", "%Y-%m"]
+    for fmt in formats:
+        parsed = pd.to_datetime(series, format=fmt, errors="coerce")
+        if parsed.notna().any():
+            return parsed
+    # Month abbreviation (Jan, Feb...) — assign year 2024 as default
+    parsed = pd.to_datetime(series, format="%b", errors="coerce").map(
+        lambda d: d.replace(year=2024) if pd.notna(d) else d
+    )
+    if parsed.notna().any():
+        return parsed
+    return pd.to_datetime(series, errors="coerce")
 
 
 def _parse_tags(raw) -> dict:
@@ -99,11 +117,7 @@ def load_csv(source) -> pd.DataFrame:
     if nan_cost > 0:
         warnings.warn(f"{nan_cost} row(s) have invalid cost values and were set to NaN.")
 
-    df["date"] = pd.to_datetime(df["date"], format="%b", errors="coerce").map(
-        lambda d: d.replace(year=2024) if pd.notna(d) else d
-    )
-    if df["date"].isna().all():
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["date"] = _parse_dates(df["date"])
     nan_date = df["date"].isna().sum()
     if nan_date > 0:
         warnings.warn(f"{nan_date} row(s) have invalid date values and were set to NaT.")
